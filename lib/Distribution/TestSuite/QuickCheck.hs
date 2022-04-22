@@ -198,5 +198,40 @@ data PropertyTest prop = PropertyTest {
   property :: prop
 }
 
---getPropTestInsWTArgsUArgs :: QC.Testable t => PropertyTest t -> T.TestInstance
---getPropTestInsWTArgsUArgs 
+-- TODO: Figure out how to make this more concise. (Typeclass?)
+getPropertyTestInstanceWithTestArgsUsingTestArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest (TestArgs -> prop) -> TestInstance
+getPropertyTestInstanceWithTestArgsUsingArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest (Args -> prop) -> TestInstance
+getPropertyTestInstanceWithTestArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest prop -> TestInstance
+getPropertyTestInstanceWithArgsUsingTestArgs :: QC.Testable prop
+    => Args -> PropertyTest (TestArgs -> prop) -> TestInstance
+getPropertyTestInstanceWithArgsUsingArgs :: QC.Testable prop
+    => Args -> PropertyTest (Args -> prop) -> TestInstance
+getPropertyTestInstanceWithArgs :: QC.Testable prop
+    => Args -> PropertyTest prop -> TestInstance
+getPropertyTestInstanceUsingTestArgs :: QC.Testable prop
+    => PropertyTest (TestArgs -> prop) -> TestInstance
+getPropertyTestInstanceUsingArgs :: QC.Testable prop
+    => PropertyTest (Args -> prop) -> TestInstance
+getPropertyTestInstance :: QC.Testable prop
+    => PropertyTest prop -> TestInstance
+getPropertyTestWithTestArgsUsingTestArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest (TestArgs -> prop) -> Test
+getPropertyTestWithTestArgsUsingArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest (Args -> prop) -> Test
+getPropertyTestWithTestArgs :: QC.Testable prop
+    => TestArgs -> PropertyTest prop -> Test
+getPropertyTestWithArgsUsingTestArgs :: QC.Testable prop
+    => Args -> PropertyTest (TestArgs -> prop) -> Test
+getPropertyTestWithArgsUsingArgs :: QC.Testable prop
+    => Args -> PropertyTest (Args -> prop) -> Test
+getPropertyTestWithArgs :: QC.Testable prop
+    => Args -> PropertyTest prop -> Test
+getPropertyTestUsingTestArgs :: QC.Testable prop
+    => PropertyTest (TestArgs -> prop) -> Test
+getPropertyTestUsingArgs :: QC.Testable prop
+    => PropertyTest (Args -> prop) -> Test
+getPropertyTest :: QC.Testable prop
+    => PropertyTest prop -> Test
