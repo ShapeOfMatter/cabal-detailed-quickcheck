@@ -80,4 +80,30 @@ setArgStr "sizeScale" str = readMaybe str <&> \val args ->
 setArgStr _ _ = Nothing
 
 testArgDescrs :: [OptionDescr]
-testArgDescrs = []
+testArgDescrs = [
+    OptionDescr {
+        optionName = "silent",
+        optionDescription = "Suppress QuickCheck output",
+        optionType = OptionBool,
+        optionDefault = Just "False"},
+    OptionDescr {
+        optionName = "chatty",
+        optionDescription = "Print QuickCheck output",
+        optionType = OptionBool,
+        optionDefault = Just "True"},
+    OptionDescr {
+        optionName = "verbose",
+        optionDescription = "Print checked values",
+        optionType = OptionBool,
+        optionDefault = Just "False"},
+    OptionDescr {
+        optionName = "verboseShrinking",
+        optionDescription = "Print all checked and shrunk values",
+        optionType = OptionBool,
+        optionDefault = Just "False"},
+    OptionDescr {
+        optionName = "verbosity",
+        optionDescription = "Verbosity level",
+        optionType = OptionEnum ["Silent", "Chatty", "Verbose", "VerboseShrinking"],
+        optionDefault = Just "Chatty"}
+]
