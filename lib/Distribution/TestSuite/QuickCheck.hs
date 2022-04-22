@@ -1,6 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE BlockArguments #-}
 
 -- NoFieldSelectors is implemented in GHC 9.2.2, but HLS doesn’t support it
 -- {-# LANGUAGE NoFieldSelectors #-}
@@ -209,7 +210,7 @@ data PropertyTest prop = PropertyTest
     property :: prop
   }
 
--- TODO: Figure out how to make this more concise. (Typeclass?)
+-- TODO: Figure out how to concisely offer variants of this function (drop some?)
 getPropertyTestInstanceWithTestArgsUsingTestArgs ::
   QC.Testable prop =>
   TestArgs ->
@@ -219,13 +220,19 @@ getPropertyTestInstanceWithTestArgsUsingTestArgs originalArgs PropertyTest {..} 
   let withArgs args =
         T.TestInstance
           { run = do
-              result <- qcTestArgs args property
-              return undefined,
+              result <- qcTestArgs args (property args)
+              return $ T.Finished case result of
+                QC.Success {} -> T.Pass
+                QC.GaveUp {} -> T.Error $ "GaveUp: QuickCheck gave up" ++ "\n" ++ show result
+                QC.Failure {} -> T.Fail $ "Failure: A property failed" ++ "\n" ++ show result
+                QC.NoExpectedFailure {} -> T.Fail $
+                  "NoExpectedFailure: A property that should have failed did not" ++
+                    "\n" ++ show result,
             name,
             tags,
             options = getOptionDescrs originalArgs,
             setOption = \opt str -> case setArgStr opt str of
               Nothing -> Left "Parse error"
-              Just f -> _
+              Just f -> Right . withArgs $ f args
           }
    in withArgs originalArgs
