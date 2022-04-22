@@ -1,0 +1,7 @@
+## Turn QuickCheck properties into tests for Cabal
+
+This is a library for integrating QuickCheck into Cabal’s “detailed” test system.
+
+You can construct a `PropertyTest` for your property and call `getPropertyTest` on it.
+
+# This library is not usable yet! I am working on it
