@@ -20,9 +20,9 @@ import Text.Read (readMaybe)
 data Verbosity = Silent | Chatty | Verbose | VerboseShrinking
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
-toggleVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
-toggleVerbosity Silent False _ = Chatty
-toggleVerbosity v' q v = bool max min q v $ bool id pred q v'
+switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
+switchVerbosity v' q v = bool max min q v $ bool id pred q v'
+-- ^ WARNING! This function does not work when passed Silent
 
 data TestArgs = TestArgs
   { verbosity :: Verbosity,
@@ -67,22 +67,33 @@ testArgsToArgs
         maxShrinks
       }
 
-getModifiers :: QC.Testable a => TestArgs -> a -> QC.Property
-getModifiers TestArgs {verbosity, noShrinking, sizeScale} =
-  foldr (.) QC.property $ snd <$> filter fst [ (verbosity == Verbose, QC.verbose),
-    (verbosity == VerboseShrinking, QC.verboseShrinking),
-    (noShrinking, QC.noShrinking),
-    (sizeScale /= 1, QC.mapSize (* sizeScale))
-  ]
+useModifiers :: QC.Testable a => TestArgs -> a -> QC.Property
+useModifiers TestArgs {verbosity, noShrinking, sizeScale} =
+  foldr (.) QC.property $
+    snd
+      <$> filter
+        fst
+        [ (verbosity == Verbose, QC.verbose),
+          (verbosity == VerboseShrinking, QC.verboseShrinking),
+          (noShrinking, QC.noShrinking),
+          (sizeScale /= 1, QC.mapSize (* sizeScale))
+        ]
 
-toggleVIn :: Verbosity -> Bool -> TestArgs -> TestArgs
-toggleVIn v' q args@TestArgs {verbosity} = args {verbosity = toggleVerbosity v' q verbosity}
+qcTestArgs :: QC.Testable a => TestArgs -> a -> IO QC.Result
+qcTestArgs args property = QC.quickCheckWithResult (testArgsToArgs args) (useModifiers args property)
+
+switchVIn :: Verbosity -> Bool -> TestArgs -> TestArgs
+switchVIn v' q args@TestArgs {verbosity} = args {verbosity = switchVerbosity v' q verbosity}
 
 setArgStr :: String -> String -> Maybe (TestArgs -> TestArgs)
-setArgStr "silent" str = readMaybe str <&> toggleVIn Silent
-setArgStr "chatty" str = readMaybe str <&> toggleVIn Chatty
-setArgStr "verbose" str = readMaybe str <&> toggleVIn Verbose
-setArgStr "verboseShrinking" str = readMaybe str <&> toggleVIn VerboseShrinking
+setArgStr "silent" str =
+  readMaybe str <&> \val args@TestArgs {verbosity} ->
+    if val
+      then args {verbosity = Silent}
+      else args {verbosity = max Chatty verbosity}
+setArgStr "chatty" str = readMaybe str <&> switchVIn Chatty
+setArgStr "verbose" str = readMaybe str <&> switchVIn Verbose
+setArgStr "verboseShrinking" str = readMaybe str <&> switchVIn VerboseShrinking
 setArgStr "verbosity" str =
   readMaybe str <&> \val args ->
     args {verbosity = val}
@@ -116,122 +127,105 @@ positiveIntType =
       optionNumberBounds = (Just "1", Nothing)
     }
 
-testArgDescrs :: [T.OptionDescr]
-testArgDescrs =
+getOptionDescrs :: TestArgs -> [T.OptionDescr]
+getOptionDescrs TestArgs {..} =
   [ T.OptionDescr
       { optionName = "silent",
         optionDescription = "Suppress QuickCheck output",
         optionType = T.OptionBool,
-        optionDefault = Just "False"
+        optionDefault = Just . show $ verbosity == Silent
       },
     T.OptionDescr
       { optionName = "chatty",
         optionDescription = "Print QuickCheck output",
         optionType = T.OptionBool,
-        optionDefault = Just "True"
+        optionDefault = Just . show $ verbosity > Chatty
       },
     T.OptionDescr
       { optionName = "verbose",
         optionDescription = "Print checked values",
         optionType = T.OptionBool,
-        optionDefault = Just "False"
+        optionDefault = Just . show $ verbosity > Verbose
       },
     T.OptionDescr
       { optionName = "verboseShrinking",
         optionDescription = "Print all checked and shrunk values",
         optionType = T.OptionBool,
-        optionDefault = Just "False"
+        optionDefault = Just . show $ verbosity == VerboseShrinking
       },
     T.OptionDescr
       { optionName = "verbosity",
         optionDescription = "Verbosity level",
         optionType = T.OptionEnum ["Silent", "Chatty", "Verbose", "VerboseShrinking"],
-        optionDefault = Just "Chatty"
+        optionDefault = Just $ show verbosity
       },
     T.OptionDescr
       { optionName = "maxDiscardRatio",
         optionDescription = "Maximum number of discarded tests per successful test before giving up",
         optionType = positiveIntType,
-        optionDefault = Just "10"
+        optionDefault = Just $ show maxDiscardRatio
       },
-    T.OptionDescr {
-      optionName = "noShrinking",
-      optionDescription = "Disable shrinking",
-      optionType = T.OptionBool,
-      optionDefault = Just "False"
-    },
-    T.OptionDescr {
-      optionName = "shrinking",
-      optionDescription = "Enable shrinking",
-      optionType = T.OptionBool,
-      optionDefault = Just "True"
-    },
-    T.OptionDescr {
-      optionName = "maxShrinks",
-      optionDescription = "Maximum number of shrinks to before giving up or zero to disable shrinking",
-      optionType = positiveIntType,
-      optionDefault = Just . show $ maxBound @Int
-    },
-    T.OptionDescr {
-      optionName = "maxSuccess",
-      optionDescription = "Maximum number of successful tests before succeeding",
-      optionType = positiveIntType,
-      optionDefault = Just "100"
-    },
-    T.OptionDescr {
-      optionName = "maxSize",
-      optionDescription = "Size to use for the biggest test cases",
-      optionType = positiveIntType,
-      optionDefault = Just "100"
-    },
-    T.OptionDescr {
-      optionName = "sizeScale",
-      optionDescription = "Scale all sizes by a number",
-      optionType = positiveIntType,
-      optionDefault = Just "1"
-    }
+    T.OptionDescr
+      { optionName = "noShrinking",
+        optionDescription = "Disable shrinking",
+        optionType = T.OptionBool,
+        optionDefault = Just $ show noShrinking
+      },
+    T.OptionDescr
+      { optionName = "shrinking",
+        optionDescription = "Enable shrinking",
+        optionType = T.OptionBool,
+        optionDefault = Just . show $ not noShrinking
+      },
+    T.OptionDescr
+      { optionName = "maxShrinks",
+        optionDescription = "Maximum number of shrinks to before giving up or zero to disable shrinking",
+        optionType = positiveIntType,
+        optionDefault = Just $ show maxShrinks
+      },
+    T.OptionDescr
+      { optionName = "maxSuccess",
+        optionDescription = "Maximum number of successful tests before succeeding",
+        optionType = positiveIntType,
+        optionDefault = Just $ show maxSuccess
+      },
+    T.OptionDescr
+      { optionName = "maxSize",
+        optionDescription = "Size to use for the biggest test cases",
+        optionType = positiveIntType,
+        optionDefault = Just $ show maxSize
+      },
+    T.OptionDescr
+      { optionName = "sizeScale",
+        optionDescription = "Scale all sizes by a number",
+        optionType = positiveIntType,
+        optionDefault = Just $ show sizeScale
+      }
   ]
 
-data PropertyTest prop = PropertyTest {
-  name :: String,
-  tags :: [String],
-  property :: prop
-}
+data PropertyTest prop = PropertyTest
+  { name :: String,
+    tags :: [String],
+    property :: prop
+  }
 
 -- TODO: Figure out how to make this more concise. (Typeclass?)
-getPropertyTestInstanceWithTestArgsUsingTestArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest (TestArgs -> prop) -> TestInstance
-getPropertyTestInstanceWithTestArgsUsingArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest (Args -> prop) -> TestInstance
-getPropertyTestInstanceWithTestArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest prop -> TestInstance
-getPropertyTestInstanceWithArgsUsingTestArgs :: QC.Testable prop
-    => Args -> PropertyTest (TestArgs -> prop) -> TestInstance
-getPropertyTestInstanceWithArgsUsingArgs :: QC.Testable prop
-    => Args -> PropertyTest (Args -> prop) -> TestInstance
-getPropertyTestInstanceWithArgs :: QC.Testable prop
-    => Args -> PropertyTest prop -> TestInstance
-getPropertyTestInstanceUsingTestArgs :: QC.Testable prop
-    => PropertyTest (TestArgs -> prop) -> TestInstance
-getPropertyTestInstanceUsingArgs :: QC.Testable prop
-    => PropertyTest (Args -> prop) -> TestInstance
-getPropertyTestInstance :: QC.Testable prop
-    => PropertyTest prop -> TestInstance
-getPropertyTestWithTestArgsUsingTestArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest (TestArgs -> prop) -> Test
-getPropertyTestWithTestArgsUsingArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest (Args -> prop) -> Test
-getPropertyTestWithTestArgs :: QC.Testable prop
-    => TestArgs -> PropertyTest prop -> Test
-getPropertyTestWithArgsUsingTestArgs :: QC.Testable prop
-    => Args -> PropertyTest (TestArgs -> prop) -> Test
-getPropertyTestWithArgsUsingArgs :: QC.Testable prop
-    => Args -> PropertyTest (Args -> prop) -> Test
-getPropertyTestWithArgs :: QC.Testable prop
-    => Args -> PropertyTest prop -> Test
-getPropertyTestUsingTestArgs :: QC.Testable prop
-    => PropertyTest (TestArgs -> prop) -> Test
-getPropertyTestUsingArgs :: QC.Testable prop
-    => PropertyTest (Args -> prop) -> Test
-getPropertyTest :: QC.Testable prop
-    => PropertyTest prop -> Test
+getPropertyTestInstanceWithTestArgsUsingTestArgs ::
+  QC.Testable prop =>
+  TestArgs ->
+  PropertyTest (TestArgs -> prop) ->
+  T.TestInstance
+getPropertyTestInstanceWithTestArgsUsingTestArgs originalArgs PropertyTest {..} =
+  let withArgs args =
+        T.TestInstance
+          { run = do
+              result <- qcTestArgs args property
+              return undefined,
+            name,
+            tags,
+            options = getOptionDescrs originalArgs,
+            setOption = \opt str -> case setArgStr opt str of
+              Nothing -> Left "Parse error"
+              Just f -> _
+          }
+   in withArgs originalArgs
