@@ -5,33 +5,33 @@
 -- NoFieldSelectors is implemented in GHC 9.2.2, but HLS doesn’t support it
 -- {-# LANGUAGE NoFieldSelectors #-}
 
-{- |
-Module:       Distribution.TestSuite.QuickCheck
-Description:  Convert QuickCheck properties into Cabal tests
-Copyright:    ⓒ Anselm Schüler 2022
-License:      MIT
-Maintainer:   Anselm Schüler <mail@anselmschueler.com>
-Stability:    stable
-Portability:  Portable
-
-This module allows you to easily make Cabal tests for the @detailed-0.9@ interface.
-It sets sensible option declarations for the tests.
-
-This module re-uses record names from 'Distribution.TestSuite' and 'Test.QuickCheck'.
-It is recommended that you enable the @DisambiguateRecordFields@ extension in GHC and/or import the module qualified.
-For basic tests, you don’t need to import 'Distribution.TestSuite'.
--}
-
+-- |
+-- Module:       Distribution.TestSuite.QuickCheck
+-- Description:  Convert QuickCheck properties into Cabal tests
+-- Copyright:    ⓒ Anselm Schüler 2022
+-- License:      MIT
+-- Maintainer:   Anselm Schüler <mail@anselmschueler.com>
+-- Stability:    stable
+-- Portability:  Portable
+--
+-- This module allows you to easily make Cabal tests for the @detailed-0.9@ interface.
+-- It sets sensible option declarations for the tests.
+--
+-- This module re-uses record names from 'Distribution.TestSuite' and 'Test.QuickCheck'.
+-- It is recommended that you enable the @DisambiguateRecordFields@ extension in GHC and/or import the module qualified.
+-- For basic tests, you don’t need to import 'Distribution.TestSuite'.
 module Distribution.TestSuite.QuickCheck
   ( -- * Create tests
     getPropertyTest,
     getPropertyTestWith,
     getPropertyTestUsing,
     getPropertyTestWithUsing,
+
     -- * Argument data types
     PropertyTest (..),
     TestArgs (..),
     Verbosity (..),
+
     -- * Functions for using arguments
     argsToTestArgs,
     testArgsToArgs,
@@ -53,8 +53,15 @@ data Verbosity
     Chatty
   | -- | Print every test case
     Verbose
-  deriving (Eq, -- | 'Silent' < 'Chatty' < 'Verbose'
-                Ord, Show, Read, Enum, Bounded)
+  deriving
+    ( Eq,
+      -- | 'Silent' < 'Chatty' < 'Verbose'
+      Ord,
+      Show,
+      Read,
+      Enum,
+      Bounded
+    )
 
 -- ! [PARTIAL] This function fails when passed Silent
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
