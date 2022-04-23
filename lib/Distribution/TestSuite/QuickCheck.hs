@@ -1,7 +1,6 @@
+{-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE BlockArguments #-}
 
 -- NoFieldSelectors is implemented in GHC 9.2.2, but HLS doesn’t support it
 -- {-# LANGUAGE NoFieldSelectors #-}
@@ -9,24 +8,30 @@
 module Distribution.TestSuite.QuickCheck
   ( Verbosity (..),
     TestArgs (..),
-    getPropertyTestInstanceWithTestArgsUsingTestArgs,
-    stdTestArgs, argsToTestArgs, testArgsToArgs
+    stdTestArgs,
+    argsToTestArgs,
+    testArgsToArgs,
+    getPropertyTestUsing,
+    getPropertyTestWith,
+    getPropertyTest,
   )
 where
 
-import Data.Bool (bool)
-import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
 import Text.Read (readMaybe)
-import GHC.IO (unsafePerformIO)
+import Data.Functor ((<&>))
+import Data.Bool (bool)
 
-data Verbosity = Silent | Chatty | Verbose
+data Verbosity
+  = Silent
+  | Chatty
+  | Verbose
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
+-- ! This function does not work when passed Silent
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
 switchVerbosity v' q v = bool max min q v $ bool id pred q v'
--- ^ WARNING! This function does not work when passed Silent
 
 data TestArgs = TestArgs
   { verbosity :: Verbosity,
@@ -218,13 +223,13 @@ data PropertyTest prop = PropertyTest
   }
 
 -- TODO: Figure out how to concisely offer variants of this function (drop some?)
-getPropertyTestInstanceWithTestArgsUsingTestArgs ::
+getPropertyTestWithUsing ::
   QC.Testable prop =>
   TestArgs ->
   PropertyTest (TestArgs -> prop) ->
-  T.TestInstance
-getPropertyTestInstanceWithTestArgsUsingTestArgs originalArgs PropertyTest {..} =
-  let withArgs args =
+  T.Test
+getPropertyTestWithUsing originalArgs PropertyTest {..} =
+  let withArgs args = 
         T.TestInstance
           { run = do
               result <- qcTestArgs args (property args)
@@ -232,9 +237,11 @@ getPropertyTestInstanceWithTestArgsUsingTestArgs originalArgs PropertyTest {..} 
                 QC.Success {} -> T.Pass
                 QC.GaveUp {} -> T.Error $ "GaveUp: QuickCheck gave up" ++ "\n" ++ show result
                 QC.Failure {} -> T.Fail $ "Failure: A property failed" ++ "\n" ++ show result
-                QC.NoExpectedFailure {} -> T.Fail $
-                  "NoExpectedFailure: A property that should have failed did not" ++
-                    "\n" ++ show result,
+                QC.NoExpectedFailure {} ->
+                  T.Fail $
+                    "NoExpectedFailure: A property that should have failed did not"
+                      ++ "\n"
+                      ++ show result,
             name,
             tags,
             options = getOptionDescrs originalArgs,
@@ -242,4 +249,16 @@ getPropertyTestInstanceWithTestArgsUsingTestArgs originalArgs PropertyTest {..} 
               Nothing -> Left "Parse error"
               Just f -> Right . withArgs $ f args
           }
-   in withArgs originalArgs
+   in T.Test $ withArgs originalArgs
+
+discardingTestArgs :: PropertyTest prop -> PropertyTest (TestArgs -> prop)
+discardingTestArgs test@PropertyTest { property } = test { property = const property }
+
+getPropertyTestUsing :: QC.Testable prop => PropertyTest (TestArgs -> prop) -> T.Test
+getPropertyTestUsing = getPropertyTestWithUsing stdTestArgs
+
+getPropertyTestWith :: QC.Testable prop => TestArgs -> PropertyTest prop -> T.Test
+getPropertyTestWith args = getPropertyTestWithUsing args . discardingTestArgs
+
+getPropertyTest :: QC.Testable prop => PropertyTest prop -> T.Test
+getPropertyTest = getPropertyTestWithUsing stdTestArgs . discardingTestArgs
