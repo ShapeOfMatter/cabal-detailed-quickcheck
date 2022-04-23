@@ -1,7 +1,7 @@
-## Turn QuickCheck properties into tests for Cabal
+# Turn QuickCheck properties into tests for Cabal
 
-This is a library for integrating QuickCheck into Cabal’s “detailed” test system.
+This is a library for using [QuickCheck](https://hackage.haskell.org/package/QuickCheck) properties in Cabal’s `detailed-0.9` test interface ([docs](https://cabal.readthedocs.io/en/3.6/cabal-package.html#example-package-using-detailed-0-9-interface)).
 
-You can construct a `PropertyTest` for your property and call `getPropertyTest` on it.
+You can construct a `PropertyTest` for your property and call `getPropertyTest` on it. For more details, see the Haddock documentation.
 
-# This library is not usable yet! I am working on it
+This project is developed on GitHub: <https://github.com/schuelermine/cabal-detailed-quickcheck>

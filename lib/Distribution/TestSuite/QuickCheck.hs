@@ -5,34 +5,63 @@
 -- NoFieldSelectors is implemented in GHC 9.2.2, but HLS doesn’t support it
 -- {-# LANGUAGE NoFieldSelectors #-}
 
+{- |
+Module:       Distribution.TestSuite.QuickCheck
+Description:  Convert QuickCheck properties into Cabal tests
+Copyright:    ⓒ Anselm Schüler 2022
+License:      MIT
+Maintainer:   Anselm Schüler <mail@anselmschueler.com>
+Stability:    stable
+Portability:  Portable
+
+This module allows you to easily make Cabal tests for the @detailed-0.9@ interface.
+It sets sensible option declarations for the tests.
+
+This module re-uses record names from 'Distribution.TestSuite' and 'Test.QuickCheck'.
+It is recommended that you enable the @DisambiguateRecordFields@ extension in GHC and/or import the module qualified.
+For basic tests, you don’t need to import 'Distribution.TestSuite'.
+-}
+
 module Distribution.TestSuite.QuickCheck
-  ( Verbosity (..),
+  ( -- * Create tests
+    getPropertyTest,
+    getPropertyTestWith,
+    getPropertyTestUsing,
+    getPropertyTestWithUsing,
+    -- * Argument data types
+    PropertyTest (..),
     TestArgs (..),
-    stdTestArgs,
+    Verbosity (..),
+    -- * Functions for using arguments
     argsToTestArgs,
     testArgsToArgs,
-    getPropertyTestUsing,
-    getPropertyTestWith,
-    getPropertyTest,
+    stdTestArgs,
   )
 where
 
+import Data.Bool (bool)
+import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
 import Text.Read (readMaybe)
-import Data.Functor ((<&>))
-import Data.Bool (bool)
 
+-- | Datatype for setting the verbosity of tests
 data Verbosity
-  = Silent
-  | Chatty
-  | Verbose
-  deriving (Eq, Ord, Show, Read, Enum, Bounded)
+  = -- | QuickCheck prints nothing
+    Silent
+  | -- | Print basic statistics
+    Chatty
+  | -- | Print every test case
+    Verbose
+  deriving (Eq, -- | 'Silent' < 'Chatty' < 'Verbose'
+                Ord, Show, Read, Enum, Bounded)
 
--- ! This function does not work when passed Silent
+-- ! [PARTIAL] This function fails when passed Silent
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
 switchVerbosity v' q v = bool max min q v $ bool id pred q v'
 
+-- | Arguments for altering property test behaviour.
+--   These can be altered in the final Cabal 'T.Test' using 'T.setOption'.
 data TestArgs = TestArgs
   { verbosity :: Verbosity,
     verboseShrinking :: Bool,
@@ -44,6 +73,7 @@ data TestArgs = TestArgs
     sizeScale :: Int
   }
 
+-- | Transform a QuickCheck 'QC.Args' value to a 'TestArgs' value, defaulting all missing properties
 argsToTestArgs :: QC.Args -> TestArgs
 argsToTestArgs QC.Args {..} =
   TestArgs
@@ -57,9 +87,11 @@ argsToTestArgs QC.Args {..} =
       sizeScale = 1
     }
 
+-- | Default arguments for property tests
 stdTestArgs :: TestArgs
 stdTestArgs = argsToTestArgs QC.stdArgs
 
+-- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
 testArgsToArgs :: TestArgs -> QC.Args
 testArgsToArgs
   TestArgs
@@ -216,27 +248,34 @@ getOptionDescrs TestArgs {..} =
       }
   ]
 
+-- | Property test declaration with metadata
 data PropertyTest prop = PropertyTest
-  { name :: String,
+  { -- | Name of the test, for Cabal. See See Cabal’s 'T.name'.
+    name :: String,
+    -- | Tags of the test, for Cabal. See Cabal’s 'T.tags'.
     tags :: [String],
+    -- | Property to check. This should usually be or return an instance of 'QC.Testable'.
     property :: prop
   }
 
--- TODO: Figure out how to concisely offer variants of this function (drop some?)
+-- | Get a Cabal 'T.Test' with custom 'TestArgs' from a 'PropertyTest' that takes the test arguments and returns a 'QC.testable' value
 getPropertyTestWithUsing ::
   QC.Testable prop =>
+  -- | The arguments for the test
   TestArgs ->
+  -- | A property test whose 'property' takes a 'TestArgs' argument
   PropertyTest (TestArgs -> prop) ->
   T.Test
 getPropertyTestWithUsing originalArgs PropertyTest {..} =
-  let withArgs args = 
+  let withArgs args =
         T.TestInstance
           { run = do
               result <- qcTestArgs args (property args)
+              let resultStr = "\n" ++ show result
               return $ T.Finished case result of
                 QC.Success {} -> T.Pass
-                QC.GaveUp {} -> T.Error $ "GaveUp: QuickCheck gave up" ++ "\n" ++ show result
-                QC.Failure {} -> T.Fail $ "Failure: A property failed" ++ "\n" ++ show result
+                QC.GaveUp {} -> T.Error $ "GaveUp: QuickCheck gave up" ++ resultStr
+                QC.Failure {} -> T.Fail $ "Failure: A property failed" ++ resultStr
                 QC.NoExpectedFailure {} ->
                   T.Fail $
                     "NoExpectedFailure: A property that should have failed did not"
@@ -252,13 +291,25 @@ getPropertyTestWithUsing originalArgs PropertyTest {..} =
    in T.Test $ withArgs originalArgs
 
 discardingTestArgs :: PropertyTest prop -> PropertyTest (TestArgs -> prop)
-discardingTestArgs test@PropertyTest { property } = test { property = const property }
+discardingTestArgs test@PropertyTest {property} = test {property = const property}
 
-getPropertyTestUsing :: QC.Testable prop => PropertyTest (TestArgs -> prop) -> T.Test
+-- | Get a Cabal 'T.Test' from a 'PropertyTest' that takes the test arguments and returns a 'QC.Testable' value
+getPropertyTestUsing ::
+  QC.Testable prop =>
+  -- | A property test whose 'property' takes a 'TestArgs' argument
+  PropertyTest (TestArgs -> prop) ->
+  T.Test
 getPropertyTestUsing = getPropertyTestWithUsing stdTestArgs
 
-getPropertyTestWith :: QC.Testable prop => TestArgs -> PropertyTest prop -> T.Test
+-- | Get a Cabal 'T.Test' from a 'PropertyTest' with custom 'TestArgs'
+getPropertyTestWith ::
+  QC.Testable prop =>
+  -- | The arguments for the test
+  TestArgs ->
+  PropertyTest prop ->
+  T.Test
 getPropertyTestWith args = getPropertyTestWithUsing args . discardingTestArgs
 
+-- | Get a Cabal 'T.Test' from a 'PropertyTest'
 getPropertyTest :: QC.Testable prop => PropertyTest prop -> T.Test
 getPropertyTest = getPropertyTestWithUsing stdTestArgs . discardingTestArgs
