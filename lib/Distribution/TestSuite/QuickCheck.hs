@@ -80,9 +80,7 @@ useModifiers TestArgs {verbosity, noShrinking, verboseShrinking, sizeScale} =
       <$> filter
         fst
         [ (verbosity == Verbose, QC.verbose),
-          (verboseShrinking, unsafePerformIO do 
-            putStrLn "verboseShrinking"
-            return QC.verboseShrinking),
+          (verboseShrinking, QC.verboseShrinking),
           (noShrinking, QC.noShrinking),
           (sizeScale /= 1, QC.mapSize (* sizeScale))
         ]
