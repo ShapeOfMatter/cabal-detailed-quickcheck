@@ -9,6 +9,8 @@
 module Distribution.TestSuite.QuickCheck
   ( Verbosity (..),
     TestArgs (..),
+    getPropertyTestInstanceWithTestArgsUsingTestArgs,
+    stdTestArgs, argsToTestArgs, testArgsToArgs
   )
 where
 
@@ -17,8 +19,9 @@ import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
 import Text.Read (readMaybe)
+import GHC.IO (unsafePerformIO)
 
-data Verbosity = Silent | Chatty | Verbose | VerboseShrinking
+data Verbosity = Silent | Chatty | Verbose
   deriving (Eq, Ord, Show, Read, Enum, Bounded)
 
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
@@ -27,6 +30,7 @@ switchVerbosity v' q v = bool max min q v $ bool id pred q v'
 
 data TestArgs = TestArgs
   { verbosity :: Verbosity,
+    verboseShrinking :: Bool,
     maxDiscardRatio :: Int,
     noShrinking :: Bool,
     maxShrinks :: Int,
@@ -39,6 +43,7 @@ argsToTestArgs :: QC.Args -> TestArgs
 argsToTestArgs QC.Args {..} =
   TestArgs
     { verbosity = if chatty then Chatty else Silent,
+      verboseShrinking = False,
       maxDiscardRatio,
       noShrinking = False,
       maxShrinks,
@@ -69,13 +74,15 @@ testArgsToArgs
       }
 
 useModifiers :: QC.Testable a => TestArgs -> a -> QC.Property
-useModifiers TestArgs {verbosity, noShrinking, sizeScale} =
+useModifiers TestArgs {verbosity, noShrinking, verboseShrinking, sizeScale} =
   foldr (.) QC.property $
     snd
       <$> filter
         fst
         [ (verbosity == Verbose, QC.verbose),
-          (verbosity == VerboseShrinking, QC.verboseShrinking),
+          (verboseShrinking, unsafePerformIO do 
+            putStrLn "verboseShrinking"
+            return QC.verboseShrinking),
           (noShrinking, QC.noShrinking),
           (sizeScale /= 1, QC.mapSize (* sizeScale))
         ]
@@ -94,7 +101,9 @@ setArgStr "silent" str =
       else args {verbosity = max Chatty verbosity}
 setArgStr "chatty" str = readMaybe str <&> switchVIn Chatty
 setArgStr "verbose" str = readMaybe str <&> switchVIn Verbose
-setArgStr "verboseShrinking" str = readMaybe str <&> switchVIn VerboseShrinking
+setArgStr "verboseShrinking" str =
+  readMaybe str <&> \val args ->
+    args {verboseShrinking = val}
 setArgStr "verbosity" str =
   readMaybe str <&> \val args ->
     args {verbosity = val}
@@ -106,7 +115,7 @@ setArgStr "noShrinking" str =
     args {noShrinking = val}
 setArgStr "shrinking" str =
   readMaybe str <&> \val args ->
-    args {noShrinking = not val} -- Is this code not DRY enough?
+    args {noShrinking = not val}
 setArgStr "maxShrinks" str =
   readMaybe str <&> \val args ->
     args {maxShrinks = val}
@@ -152,7 +161,7 @@ getOptionDescrs TestArgs {..} =
       { optionName = "verboseShrinking",
         optionDescription = "Print all checked and shrunk values",
         optionType = T.OptionBool,
-        optionDefault = Just . show $ verbosity == VerboseShrinking
+        optionDefault = Just . show $ verboseShrinking
       },
     T.OptionDescr
       { optionName = "verbosity",
