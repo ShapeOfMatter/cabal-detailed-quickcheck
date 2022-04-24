@@ -1,6 +1,6 @@
 # Revision history for cabal-detailed-quickcheck
 
-## 0.1.0.1 — 2022-04-24
+## 0.1.1.0 — 2022-04-24
 
 * Improved documentation.
 * Add `getPropertyTests` and `propertyTestGroup` for groups of tests.
