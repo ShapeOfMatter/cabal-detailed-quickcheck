@@ -14,18 +14,20 @@
 -- Stability:    stable
 -- Portability:  Portable
 --
--- This module allows you to easily make Cabal tests for the @detailed-0.9@ interface.
+-- This module allows you to easily make Cabal tests for the @detailed-0.9@ interface. ([docs](https://cabal.readthedocs.io/en/3.6/cabal-package.html#example-package-using-detailed-0-9-interface))
 -- It sets sensible option declarations for the tests.
 --
--- This module re-uses record names from 'Distribution.TestSuite' and 'Test.QuickCheck'.
--- It is recommended that you enable the @DisambiguateRecordFields@ extension in GHC and/or import the module qualified.
--- For basic tests, you don’t need to import 'Distribution.TestSuite'.
+-- This module re-uses record names from "Distribution.TestSuite" and "Test.QuickCheck".
+-- It is recommended that you enable the [@DisambiguateRecordFields@](https://downloads.haskell.org/ghc/latest/docs/html/users_guide/exts/disambiguate_record_fields.html) extension in GHC and/or import the module qualified.
+-- For basic tests, you don’t need to import "Distribution.TestSuite".
 module Distribution.TestSuite.QuickCheck
   ( -- * Create tests
     getPropertyTest,
     getPropertyTestWith,
     getPropertyTestUsing,
     getPropertyTestWithUsing,
+    getPropertyTests,
+    propertyTestGroup,
 
     -- * Argument data types
     PropertyTest (..),
@@ -47,11 +49,11 @@ import Text.Read (readMaybe)
 
 -- | Datatype for setting the verbosity of tests
 data Verbosity
-  = -- | QuickCheck prints nothing
+  = -- | QuickCheck prints nothing. This sets @'QC.chatty' = 'False'@.
     Silent
-  | -- | Print basic statistics
+  | -- | Print basic statistics. This sets @'QC.chatty' = 'True'@.
     Chatty
-  | -- | Print every test case
+  | -- | Print every test case. This applies 'QC.verbose'.
     Verbose
   deriving
     ( Eq,
@@ -70,13 +72,22 @@ switchVerbosity v' q v = bool max min q v $ bool id pred q v'
 -- | Arguments for altering property test behaviour.
 --   These can be altered in the final Cabal 'T.Test' using 'T.setOption'.
 data TestArgs = TestArgs
-  { verbosity :: Verbosity,
+  { -- | Verbosity for tests. See 'QC.verbose' and 'QC.chatty'.
+    verbosity :: Verbosity,
+    -- TODO Consider joining verboseShrinking back into verbosity
+    -- | Whether QuickCheck should print shrinks. See 'QC.verboseShrinking'.
     verboseShrinking :: Bool,
+    -- | Maximum discarded tests per successful test. See 'QC.maxDiscardRatio'.
     maxDiscardRatio :: Int,
+    -- | Disable shrinking. See 'QC.noShrinking'.
     noShrinking :: Bool,
+    -- | Maximum number of shrink attempts. See 'QC.maxShrinks'.
     maxShrinks :: Int,
+    -- | Maximum number of successful checks before passing. See 'QC.maxSuccess'.
     maxSuccess :: Int,
+    -- | Maximum size of test cases. See 'QC.maxSize'.
     maxSize :: Int,
+    -- | Scale size by an integer using 'QC.mapSize'.
     sizeScale :: Int
   }
 
@@ -276,6 +287,7 @@ getPropertyTestWithUsing ::
 getPropertyTestWithUsing originalArgs PropertyTest {..} =
   let withArgs args =
         T.TestInstance
+        -- TODO Consider using 'T.Progress' to allow intermediate results
           { run = do
               result <- qcTestArgs args (property args)
               let resultStr = "\n" ++ show result
@@ -320,3 +332,11 @@ getPropertyTestWith args = getPropertyTestWithUsing args . discardingTestArgs
 -- | Get a Cabal 'T.Test' from a 'PropertyTest'
 getPropertyTest :: QC.Testable prop => PropertyTest prop -> T.Test
 getPropertyTest = getPropertyTestWithUsing stdTestArgs . discardingTestArgs
+
+-- | Get a list of 'T.Test's from a list of 'PropertyTest's
+getPropertyTests :: QC.Testable prop => [PropertyTest prop] -> [T.Test]
+getPropertyTests = (getPropertyTest <$>)
+
+-- | Get a named test group from a list of 'PropertyTests's. These are assumed to be able to run in parallel. See 'T.testGroup' and 'T.Group'.
+propertyTestGroup :: QC.Testable prop => String -> [PropertyTest prop] -> T.Test
+propertyTestGroup name = T.testGroup name . getPropertyTests
