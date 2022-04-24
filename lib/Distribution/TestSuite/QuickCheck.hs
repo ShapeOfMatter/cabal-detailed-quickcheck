@@ -27,7 +27,7 @@ module Distribution.TestSuite.QuickCheck
     getPropertyTestUsing,
     getPropertyTestWithUsing,
     getPropertyTests,
-    getPropertyTestGroup,
+    propertyTestGroup,
 
     -- * Argument data types
     PropertyTest (..),
