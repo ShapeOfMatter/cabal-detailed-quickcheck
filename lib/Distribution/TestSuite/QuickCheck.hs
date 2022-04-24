@@ -337,6 +337,6 @@ getPropertyTest = getPropertyTestWithUsing stdTestArgs . discardingTestArgs
 getPropertyTests :: QC.Testable prop => [PropertyTest prop] -> [T.Test]
 getPropertyTests = (getPropertyTest <$>)
 
--- | Get a test group from a list of 'PropertyTests's. See 'T.testGroup' and 'T.Group'.
-propertyTestGroup :: QC.Testable prop => [PropertyTest prop] -> T.Test
-propertyTestGroup = T.testGroup . getPropertyTests
+-- | Get a named test group from a list of 'PropertyTests's. These are assumed to be able to run in parallel. See 'T.testGroup' and 'T.Group'.
+propertyTestGroup :: QC.Testable prop => String -> [PropertyTest prop] -> T.Test
+propertyTestGroup name = T.testGroup name . getPropertyTests
