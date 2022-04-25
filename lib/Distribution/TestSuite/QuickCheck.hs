@@ -75,6 +75,7 @@ data TestArgs = TestArgs
   { -- | Verbosity for tests. See 'QC.verbose' and 'QC.chatty'.
     verbosity :: Verbosity,
     -- TODO Consider joining verboseShrinking back into verbosity
+
     -- | Whether QuickCheck should print shrinks. See 'QC.verboseShrinking'.
     verboseShrinking :: Bool,
     -- | Maximum discarded tests per successful test. See 'QC.maxDiscardRatio'.
@@ -287,8 +288,8 @@ getPropertyTestWithUsing ::
 getPropertyTestWithUsing originalArgs PropertyTest {..} =
   let withArgs args =
         T.TestInstance
-        -- TODO Consider using 'T.Progress' to allow intermediate results
-          { run = do
+          { -- TODO Consider using 'T.Progress' to allow intermediate results
+            run = do
               result <- qcTestArgs args (property args)
               let resultStr = "\n" ++ show result
               return $ T.Finished case result of
