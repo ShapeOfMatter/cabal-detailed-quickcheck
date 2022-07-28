@@ -288,19 +288,18 @@ getPropertyTestWithUsing ::
 getPropertyTestWithUsing originalArgs PropertyTest {..} =
   let withArgs args =
         T.TestInstance
-          { -- TODO Consider using 'T.Progress' to allow intermediate results
+          {
             run = do
               result <- qcTestArgs args (property args)
               let resultStr = "\n" ++ show result
               return $ T.Finished case result of
                 QC.Success {} -> T.Pass
-                QC.GaveUp {} -> T.Error $ "GaveUp: QuickCheck gave up" ++ resultStr
-                QC.Failure {} -> T.Fail $ "Failure: A property failed" ++ resultStr
+                QC.GaveUp {} ->
+                  T.Error $ "GaveUp: QuickCheck gave up" ++ resultStr
+                QC.Failure {} ->
+                  T.Fail $ "Failure: A property failed" ++ resultStr
                 QC.NoExpectedFailure {} ->
-                  T.Fail $
-                    "NoExpectedFailure: A property that should have failed did not"
-                      ++ "\n"
-                      ++ show result,
+                  T.Fail $ "NoExpectedFailure: A property that should have failed did not" ++ resultStr,
             name,
             tags,
             options = getOptionDescrs originalArgs,
