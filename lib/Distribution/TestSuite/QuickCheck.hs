@@ -19,7 +19,76 @@
 --
 -- This module re-uses record names from "Distribution.TestSuite" and "Test.QuickCheck".
 -- It is recommended that you enable the [@DisambiguateRecordFields@](https://downloads.haskell.org/ghc/latest/docs/html/users_guide/exts/disambiguate_record_fields.html) extension in GHC and/or import the module qualified.
--- For basic tests, you don’t need to import "Distribution.TestSuite".
+-- For many basic tests, you don’t need to import "Distribution.TestSuite".
+--
+-- To make a test, simply construct a 'PropertyTest' and call 'getPropertyTest' on it.
+--
+-- A simple sample test suite:
+--
+-- @
+-- module Tests (tests) where
+-- import "Distribution.TestSuite.QuickCheck"
+-- import "Test.QuickCheck"
+-- tests = [
+--   'getPropertyTest' 'PropertyTest' {
+--     'name' = /"addition-is-commutative"/,
+--     'tags' = [],
+--     'property' = \a b -> a + b 'QC.===' b + a
+--     }
+--   ]
+-- @
+--
+-- The tests you get as a result support several parameters:
+--
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | Property name      | Valid values | Effect                                                                          |
+-- +====================+==============+=================================================================================+
+-- | @silent@           | Booleans     | If true, all output is disabled.                                                |
+-- |                    |              | Sets 'verbosity' to 'Silent'. See 'QC.chatty'.                                  |
+-- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
+-- |                    |              | but lowers the verbosity by one level.                                          |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @chatty@           | Booleans     | If true, the default amount of output is emitted by QuickCheck.                 |
+-- |                    |              | Sets 'verbosity' to 'Chatty'. See 'QC.chatty'.                                  |
+-- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
+-- |                    |              | but lowers the verbosity by one level.                                          |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @verbose@          | Booleans     | If true, prints checked values as output.                                       |
+-- |                    |              | Sets 'verbosity' to 'Verbose'. See 'QC.verbose'.                                |
+-- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
+-- |                    |              | but lowers the verbosity by one level.                                          |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @verboseShrinking@ | Booleans     | If true, prints all checked and shrunk values as output.                        |
+-- |                    |              | See 'QC.verboseShrinking'.                                                      |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @verbosity@        | @Silent@,    | Sets the 'verbosity' to the desired level.                                      |
+-- |                    | @Chatty@,    |                                                                                 |
+-- |                    | or @Verbose@ |                                                                                 |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @maxDiscardRatio@  | positive     | Maximum number of discarded tests per successful test before giving up.         |
+-- |                    | integer      | See 'QC.maxDiscardRatio'.                                                       |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @noShrinking@      | Booleans     | Disables shrinking of test cases.                                               |
+-- |                    |              | See 'QC.noShrinking'.                                                           |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @shrinking@        | Booleans     | Opposite of @noShrinking@.                                                      |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @maxShrinks@       | nonnegative  | Maximum number of shrinks before giving up or zero to disable shrinking.        |
+-- |                    | integer      | See 'QC.maxShrinks'.                                                            |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @maxSuccess@       | positive     | Maximum number of successful tests before succeeding.                           |
+-- |                    | integer      | See 'QC.maxSuccess'.                                                            |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @maxSize@          | positive     | Size to use for the biggest test cases.                                         |
+-- |                    | integer      | See 'QC.maxSize'.                                                               |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @sizeScale@        | positive     | Scales all sizes by a number.                                                   |
+-- |                    | integer      | See 'QC.mapSize'.                                                               |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+--
+-- You can set default values by using 'getPropertyTestWith'
+-- You can access these values in your test by using 'getPropertyTestUsing'.
+-- Do both with 'getPropertyTestWithUsing'.
 module Distribution.TestSuite.QuickCheck
   ( -- * Create tests
     getPropertyTest,
@@ -106,10 +175,6 @@ argsToTestArgs QC.Args {..} =
       sizeScale = 1
     }
 
--- | Default arguments for property tests
-stdTestArgs :: TestArgs
-stdTestArgs = argsToTestArgs QC.stdArgs
-
 -- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
 testArgsToArgs :: TestArgs -> QC.Args
 testArgsToArgs
@@ -129,20 +194,9 @@ testArgsToArgs
         maxShrinks
       }
 
-useModifiers :: QC.Testable a => TestArgs -> a -> QC.Property
-useModifiers TestArgs {verbosity, noShrinking, verboseShrinking, sizeScale} =
-  foldr (.) QC.property $
-    snd
-      <$> filter
-        fst
-        [ (verbosity == Verbose, QC.verbose),
-          (verboseShrinking, QC.verboseShrinking),
-          (noShrinking, QC.noShrinking),
-          (sizeScale /= 1, QC.mapSize (* sizeScale))
-        ]
-
-qcTestArgs :: QC.Testable a => TestArgs -> a -> IO QC.Result
-qcTestArgs args property = QC.quickCheckWithResult (testArgsToArgs args) (useModifiers args property)
+-- | Default arguments for property tests
+stdTestArgs :: TestArgs
+stdTestArgs = argsToTestArgs QC.stdArgs
 
 switchVIn :: Verbosity -> Bool -> TestArgs -> TestArgs
 switchVIn v' q args@TestArgs {verbosity} = args {verbosity = switchVerbosity v' q verbosity}
@@ -243,8 +297,12 @@ getOptionDescrs TestArgs {..} =
       },
     T.OptionDescr
       { optionName = "maxShrinks",
-        optionDescription = "Maximum number of shrinks to before giving up or zero to disable shrinking",
-        optionType = positiveIntType,
+        optionDescription = "Maximum number of shrinks before giving up or zero to disable shrinking",
+        optionType =
+          T.OptionNumber
+            { optionNumberIsInt = True,
+              optionNumberBounds = (Just "0", Nothing)
+            },
         optionDefault = Just $ show maxShrinks
       },
     T.OptionDescr
@@ -267,6 +325,18 @@ getOptionDescrs TestArgs {..} =
       }
   ]
 
+getModifiers :: QC.Testable a => TestArgs -> a -> QC.Property
+getModifiers TestArgs {verbosity, noShrinking, verboseShrinking, sizeScale} =
+  foldr (.) QC.property $
+    snd
+      <$> filter
+        fst
+        [ (verbosity == Verbose, QC.verbose),
+          (verboseShrinking, QC.verboseShrinking),
+          (noShrinking, QC.noShrinking),
+          (sizeScale /= 1, QC.mapSize (* sizeScale))
+        ]
+
 -- | Property test declaration with metadata
 data PropertyTest prop = PropertyTest
   { -- | Name of the test, for Cabal. See See Cabal’s 'T.name'.
@@ -276,6 +346,9 @@ data PropertyTest prop = PropertyTest
     -- | Property to check. This should usually be or return an instance of 'QC.Testable'.
     property :: prop
   }
+
+qcTestArgs :: QC.Testable a => TestArgs -> a -> IO QC.Result
+qcTestArgs args property = QC.quickCheckWithResult (testArgsToArgs args) (getModifiers args property)
 
 -- | Get a Cabal 'T.Test' with custom 'TestArgs' from a 'PropertyTest' that takes the test arguments and returns a 'QC.testable' value
 getPropertyTestWithUsing ::
@@ -288,8 +361,7 @@ getPropertyTestWithUsing ::
 getPropertyTestWithUsing originalArgs PropertyTest {..} =
   let withArgs args =
         T.TestInstance
-          {
-            run = do
+          { run = do
               result <- qcTestArgs args (property args)
               let resultStr = "\n" ++ show result
               return $ T.Finished case result of
