@@ -1,5 +1,9 @@
 # Revision history for cabal-detailed-quickcheck
 
+## 0.1.1.7 — 2022-09-03
+
+* Improved documentation.
+
 ## 0.1.1.6 — 2022-07-28
 
 * Slightly updated code.
