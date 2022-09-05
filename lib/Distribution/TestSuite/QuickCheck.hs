@@ -45,18 +45,17 @@
 -- +====================+==============+=================================================================================+
 -- | @silent@           | Booleans     | If true, all output is disabled.                                                |
 -- |                    |              | Sets 'verbosity' to 'Silent'. See 'QC.chatty'.                                  |
--- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
--- |                    |              | but lowers the verbosity by one level.                                          |
+-- |                    |              | Disabling Silent raises the verbosity to Chatty if is not already higher        |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @chatty@           | Booleans     | If true, the default amount of output is emitted by QuickCheck.                 |
 -- |                    |              | Sets 'verbosity' to 'Chatty'. See 'QC.chatty'.                                  |
--- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
--- |                    |              | but lowers the verbosity by one level.                                          |
+-- |                    |              | Note that setting this verbosity option to false does not undo setting it to    |
+-- |                    |              | true, but lowers the verbosity by one level if it is not already lower.         |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @verbose@          | Booleans     | If true, prints checked values as output.                                       |
 -- |                    |              | Sets 'verbosity' to 'Verbose'. See 'QC.verbose'.                                |
--- |                    |              | Note that setting a verbosity option to false does not undo setting it to true, |
--- |                    |              | but lowers the verbosity by one level.                                          |
+-- |                    |              | Note that setting this verbosity option to false does not undo setting it to    |
+-- |                    |              | true, but lowers the verbosity by one level if it is not already lower.         |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @verboseShrinking@ | Booleans     | If true, prints all checked and shrunk values as output.                        |
 -- |                    |              | See 'QC.verboseShrinking'.                                                      |
@@ -136,7 +135,8 @@ data Verbosity
 
 -- ! [PARTIAL] This function fails when passed Silent
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
-switchVerbosity v' q v = bool max min q v $ bool id pred q v'
+switchVerbosity v' True v = v'
+switchVerbosity v' False v = min (pred v') v
 
 -- | Arguments for altering property test behaviour.
 --   These can be altered in the final Cabal 'T.Test' using 'T.setOption'.
