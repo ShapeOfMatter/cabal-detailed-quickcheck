@@ -45,7 +45,7 @@
 -- +====================+==============+=================================================================================+
 -- | @silent@           | Booleans     | If true, all output is disabled.                                                |
 -- |                    |              | Sets 'verbosity' to 'Silent'. See 'QC.chatty'.                                  |
--- |                    |              | Disabling Silent raises the verbosity to Chatty if is not already higher        |
+-- |                    |              | Disabling Silent raises the verbosity to Chatty if it is not already higher.    |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @chatty@           | Booleans     | If true, the default amount of output is emitted by QuickCheck.                 |
 -- |                    |              | Sets 'verbosity' to 'Chatty'. See 'QC.chatty'.                                  |

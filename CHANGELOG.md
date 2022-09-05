@@ -1,5 +1,9 @@
 # Revision history for cabal-detailed-quickcheck
 
+## 0.1.2.1 — 2022-09-05
+
+* Fix error in documentation.
+
 ## 0.1.2.0 — 2022-09-05
 
 * Fixed verbosity switching.
