@@ -14,7 +14,7 @@
 -- Stability:    stable
 -- Portability:  Portable
 --
--- This module allows you to easily make Cabal tests for the @detailed-0.9@ interface. ([docs](https://cabal.readthedocs.io/en/3.6/cabal-package.html#example-package-using-detailed-0-9-interface))
+-- This module allows you to easily make Cabal tests for the @detailed-0.9@ interface. See the [docs](https://cabal.readthedocs.io/en/3.6/cabal-package.html#example-package-using-detailed-0-9-interface).
 -- It sets sensible option declarations for the tests.
 --
 -- This module re-uses record names from "Distribution.TestSuite" and "Test.QuickCheck".
