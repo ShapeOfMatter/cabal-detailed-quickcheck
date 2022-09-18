@@ -104,6 +104,7 @@ module Distribution.TestSuite.QuickCheck
 
     -- * Functions for using arguments
     argsToTestArgs,
+    argsToTestArgsWith,
     testArgsToArgs,
     stdTestArgs,
   )
@@ -162,37 +163,33 @@ data TestArgs = TestArgs
   }
 
 -- | Transform a QuickCheck 'QC.Args' value to a 'TestArgs' value, defaulting all missing properties
+--
+--   @'argsToTestArgs' = 'argsToTestArgsWith' 'stdTestArgs'@
 argsToTestArgs :: QC.Args -> TestArgs
-argsToTestArgs QC.Args {..} =
-  TestArgs
-    { verbosity = if chatty then Chatty else Silent,
-      verboseShrinking = False,
-      maxDiscardRatio,
-      noShrinking = False,
-      maxShrinks,
-      maxSuccess,
-      maxSize,
-      sizeScale = 1
-    }
+argsToTestArgs = argsToTestArgsWith stdTestArgs
 
--- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
-testArgsToArgs :: TestArgs -> QC.Args
-testArgsToArgs
-  TestArgs
-    { verbosity,
+-- | Transform a QuickCheck 'QC.Args' value to a 'TestArgs' value, with fallbacks for missing properties given by the first argument.
+argsToTestArgsWith :: TestArgs -> QC.Args -> TestArgs
+argsToTestArgsWith testArgs QC.Args {..} =
+  testArgs
+    { verbosity = if chatty then Chatty else Silent,
       maxDiscardRatio,
       maxShrinks,
       maxSuccess,
       maxSize
-    } =
-    QC.Args
-      { replay = Nothing,
-        maxSuccess,
-        maxDiscardRatio,
-        maxSize,
-        chatty = verbosity >= Chatty,
-        maxShrinks
-      }
+    }
+
+-- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
+testArgsToArgs :: TestArgs -> QC.Args
+testArgsToArgs TestArgs {..} =
+  QC.Args
+    { replay = Nothing,
+      maxSuccess,
+      maxDiscardRatio,
+      maxSize,
+      chatty = verbosity >= Chatty,
+      maxShrinks
+    }
 
 -- | Default arguments for property tests
 stdTestArgs :: TestArgs
@@ -381,9 +378,6 @@ getPropertyTestWithUsing originalArgs PropertyTest {..} =
           }
    in T.Test $ withArgs originalArgs
 
-discardingTestArgs :: PropertyTest prop -> PropertyTest (TestArgs -> prop)
-discardingTestArgs test@PropertyTest {property} = test {property = const property}
-
 -- | Get a Cabal 'T.Test' from a 'PropertyTest' that takes the test arguments and returns a 'QC.Testable' value
 getPropertyTestUsing ::
   QC.Testable prop =>
@@ -391,6 +385,9 @@ getPropertyTestUsing ::
   PropertyTest (TestArgs -> prop) ->
   T.Test
 getPropertyTestUsing = getPropertyTestWithUsing stdTestArgs
+
+discardingTestArgs :: PropertyTest prop -> PropertyTest (TestArgs -> prop)
+discardingTestArgs test@PropertyTest {property} = test {property = const property}
 
 -- | Get a Cabal 'T.Test' from a 'PropertyTest' with custom 'TestArgs'
 getPropertyTestWith ::
