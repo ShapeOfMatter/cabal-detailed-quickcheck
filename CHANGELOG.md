@@ -1,5 +1,9 @@
 # Revision history for cabal-detailed-quickcheck
 
+## 0.1.3.1 — 2022-09-18
+
+* Fixed a link formatting problem in the documentation.
+
 ## 0.1.3.0 — 2022-09-18
 
 * Added `argsToTestArgsWith`.
