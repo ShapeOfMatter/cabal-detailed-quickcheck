@@ -33,7 +33,7 @@
 --   'getPropertyTest' 'PropertyTest' {
 --     'name' = /"addition-is-commutative"/,
 --     'tags' = [],
---     'property' = \a b -> a + b 'QC.===' b + a
+--     'property' = \\a b -> a + b 'QC.===' b + a
 --     }
 --   ]
 -- @
