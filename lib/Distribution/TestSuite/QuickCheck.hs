@@ -114,6 +114,7 @@ import Data.Bool (bool)
 import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
+import Test.QuickCheck.Random (QCGen)
 import Text.Read (readMaybe)
 
 -- | Datatype for setting the verbosity of tests
@@ -159,7 +160,9 @@ data TestArgs = TestArgs
     -- | Maximum size of test cases. See 'QC.maxSize'.
     maxSize :: Int,
     -- | Scale size by an integer using 'QC.mapSize'.
-    sizeScale :: Int
+    sizeScale :: Int,
+    -- | Replay a previous test. Pass the seed and size given by 'QC.usedSeed' and 'QC.usedSize'.
+    replay :: Maybe (QCGen, Int)
   }
 
 -- | Transform a QuickCheck 'QC.Args' value to a 'TestArgs' value, defaulting all missing properties
@@ -176,14 +179,15 @@ argsToTestArgsWith testArgs QC.Args {..} =
       maxDiscardRatio,
       maxShrinks,
       maxSuccess,
-      maxSize
+      maxSize,
+      replay
     }
 
 -- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
 testArgsToArgs :: TestArgs -> QC.Args
 testArgsToArgs TestArgs {..} =
   QC.Args
-    { replay = Nothing,
+    { replay,
       maxSuccess,
       maxDiscardRatio,
       maxSize,
@@ -233,6 +237,9 @@ setArgStr "maxSize" str =
 setArgStr "sizeScale" str =
   readMaybe str <&> \val args ->
     args {sizeScale = val}
+setArgStr "replay" str =
+  readMaybe str <&> \val args ->
+    args {replay = val}
 setArgStr _ _ = Nothing
 
 positiveIntType :: T.OptionType
