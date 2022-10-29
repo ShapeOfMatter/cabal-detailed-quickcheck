@@ -83,9 +83,10 @@
 -- |                    | integer      | See 'QC.mapSize'.                                                               |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @replay@           | tuple of     | Replays a previous test case. Pass a string representing a tuple of             |
--- |                    | 'QCGen' and  | the 'QC.usedSeed' and 'QC.usedSize' values of a test case.                      |
--- |                    | nonnegative  |                                                                                 |
--- |                    | integer      |                                                                                 |
+-- |                    | 'QCGen' and  | the 'QC.usedSeed' and 'QC.usedSize' values of a test case. Use empty string to  |
+-- |                    | nonnegative  | disable.                                                                        |
+-- |                    | integer or   |                                                                                 |
+-- |                    | empty        |                                                                                 |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 --
 -- You can set default values by using 'getPropertyTestWith'
@@ -200,7 +201,18 @@ testArgsToArgs TestArgs {..} =
 
 -- | Default arguments for property tests
 stdTestArgs :: TestArgs
-stdTestArgs = argsToTestArgs QC.stdArgs
+stdTestArgs =
+  TestArgs
+    { verbosity = Chatty,
+      verboseShrinking = False,
+      maxDiscardRatio = 10,
+      noShrinking = False,
+      maxShrinks = maxBound,
+      maxSuccess = 100,
+      maxSize = 100,
+      sizeScale = 1,
+      replay = Nothing
+    }
 
 switchVIn :: Verbosity -> Bool -> TestArgs -> TestArgs
 switchVIn v' q args@TestArgs {verbosity} = args {verbosity = switchVerbosity v' q verbosity}
@@ -241,8 +253,11 @@ setArgStr "sizeScale" str =
   readMaybe str <&> \val args ->
     args {sizeScale = val}
 setArgStr "replay" str =
-  readMaybe str <&> \val args ->
-    args {replay = val}
+  case str of
+    "" -> Just \args -> args {replay = Nothing}
+    _ ->
+      readMaybe str <&> \val args ->
+        args {replay = Just val}
 setArgStr _ _ = Nothing
 
 positiveIntType :: T.OptionType
