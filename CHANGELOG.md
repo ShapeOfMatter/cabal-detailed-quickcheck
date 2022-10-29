@@ -1,5 +1,9 @@
 # Revision history for cabal-detailed-quickcheck
 
+## 0.2.0.1 — 2022-10-29
+
+* Broaden version bounds
+
 ## 0.2.0.0 — 2022-10-29
 
 * Fix the library so `stdTestArgs` actually works.
