@@ -1,5 +1,10 @@
 # Revision history for cabal-detailed-quickcheck
 
+## 0.2.0.0 — 2022-10-29
+
+* Fix the library so `stdTestArgs` actually works.
+* Added the ability to replay previous tests.
+
 ## 0.1.3.2 — 2022-09-18
 
 * Fixed a typo in the documentation.

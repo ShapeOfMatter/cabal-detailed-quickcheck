@@ -1,9 +1,7 @@
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
-
--- NoFieldSelectors is implemented in GHC 9.2.2, but HLS doesn’t support it
--- {-# LANGUAGE NoFieldSelectors #-}
+{-# LANGUAGE TypeApplications #-}
 
 -- |
 -- Module:       Distribution.TestSuite.QuickCheck
@@ -43,21 +41,21 @@
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | Property name      | Valid values | Effect                                                                          |
 -- +====================+==============+=================================================================================+
--- | @silent@           | Booleans     | If true, all output is disabled.                                                |
+-- | @silent@           | booleans     | If true, all output is disabled.                                                |
 -- |                    |              | Sets 'verbosity' to 'Silent'. See 'QC.chatty'.                                  |
 -- |                    |              | Disabling Silent raises the verbosity to Chatty if it is not already higher.    |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
--- | @chatty@           | Booleans     | If true, the default amount of output is emitted by QuickCheck.                 |
+-- | @chatty@           | booleans     | If true, the default amount of output is emitted by QuickCheck.                 |
 -- |                    |              | Sets 'verbosity' to 'Chatty'. See 'QC.chatty'.                                  |
 -- |                    |              | Note that setting this verbosity option to false does not undo setting it to    |
 -- |                    |              | true, but lowers the verbosity by one level if it is not already lower.         |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
--- | @verbose@          | Booleans     | If true, prints checked values as output.                                       |
+-- | @verbose@          | booleans     | If true, prints checked values as output.                                       |
 -- |                    |              | Sets 'verbosity' to 'Verbose'. See 'QC.verbose'.                                |
 -- |                    |              | Note that setting this verbosity option to false does not undo setting it to    |
 -- |                    |              | true, but lowers the verbosity by one level if it is not already lower.         |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
--- | @verboseShrinking@ | Booleans     | If true, prints all checked and shrunk values as output.                        |
+-- | @verboseShrinking@ | booleans     | If true, prints all checked and shrunk values as output.                        |
 -- |                    |              | See 'QC.verboseShrinking'.                                                      |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @verbosity@        | @Silent@,    | Sets the 'verbosity' to the desired level.                                      |
@@ -67,10 +65,10 @@
 -- | @maxDiscardRatio@  | positive     | Maximum number of discarded tests per successful test before giving up.         |
 -- |                    | integer      | See 'QC.maxDiscardRatio'.                                                       |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
--- | @noShrinking@      | Booleans     | Disables shrinking of test cases.                                               |
+-- | @noShrinking@      | booleans     | Disables shrinking of test cases.                                               |
 -- |                    |              | See 'QC.noShrinking'.                                                           |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
--- | @shrinking@        | Booleans     | Opposite of @noShrinking@.                                                      |
+-- | @shrinking@        | booleans     | Opposite of @noShrinking@.                                                      |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @maxShrinks@       | nonnegative  | Maximum number of shrinks before giving up or zero to disable shrinking.        |
 -- |                    | integer      | See 'QC.maxShrinks'.                                                            |
@@ -83,6 +81,12 @@
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 -- | @sizeScale@        | positive     | Scales all sizes by a number.                                                   |
 -- |                    | integer      | See 'QC.mapSize'.                                                               |
+-- +--------------------+--------------+---------------------------------------------------------------------------------+
+-- | @replay@           | tuple of     | Replays a previous test case. Pass a string representing a tuple of             |
+-- |                    | 'QCGen' and  | the 'QC.usedSeed' and 'QC.usedSize' values of a test case. Use empty string to  |
+-- |                    | nonnegative  | disable.                                                                        |
+-- |                    | integer or   |                                                                                 |
+-- |                    | empty        |                                                                                 |
 -- +--------------------+--------------+---------------------------------------------------------------------------------+
 --
 -- You can set default values by using 'getPropertyTestWith'
@@ -114,6 +118,7 @@ import Data.Bool (bool)
 import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
+import Test.QuickCheck.Random (QCGen)
 import Text.Read (readMaybe)
 
 -- | Datatype for setting the verbosity of tests
@@ -159,7 +164,9 @@ data TestArgs = TestArgs
     -- | Maximum size of test cases. See 'QC.maxSize'.
     maxSize :: Int,
     -- | Scale size by an integer using 'QC.mapSize'.
-    sizeScale :: Int
+    sizeScale :: Int,
+    -- | Replay a previous test. Pass the seed and size given by 'QC.usedSeed' and 'QC.usedSize'.
+    replay :: Maybe (QCGen, Int)
   }
 
 -- | Transform a QuickCheck 'QC.Args' value to a 'TestArgs' value, defaulting all missing properties
@@ -176,14 +183,15 @@ argsToTestArgsWith testArgs QC.Args {..} =
       maxDiscardRatio,
       maxShrinks,
       maxSuccess,
-      maxSize
+      maxSize,
+      replay
     }
 
 -- | Recover arguments passed to 'QC.quickCheck' from a 'TestArgs'
 testArgsToArgs :: TestArgs -> QC.Args
 testArgsToArgs TestArgs {..} =
   QC.Args
-    { replay = Nothing,
+    { replay,
       maxSuccess,
       maxDiscardRatio,
       maxSize,
@@ -193,7 +201,18 @@ testArgsToArgs TestArgs {..} =
 
 -- | Default arguments for property tests
 stdTestArgs :: TestArgs
-stdTestArgs = argsToTestArgs QC.stdArgs
+stdTestArgs =
+  TestArgs
+    { verbosity = Chatty,
+      verboseShrinking = False,
+      maxDiscardRatio = 10,
+      noShrinking = False,
+      maxShrinks = maxBound,
+      maxSuccess = 100,
+      maxSize = 100,
+      sizeScale = 1,
+      replay = Nothing
+    }
 
 switchVIn :: Verbosity -> Bool -> TestArgs -> TestArgs
 switchVIn v' q args@TestArgs {verbosity} = args {verbosity = switchVerbosity v' q verbosity}
@@ -233,6 +252,12 @@ setArgStr "maxSize" str =
 setArgStr "sizeScale" str =
   readMaybe str <&> \val args ->
     args {sizeScale = val}
+setArgStr "replay" str =
+  case str of
+    "" -> Just \args -> args {replay = Nothing}
+    _ ->
+      readMaybe str <&> \val args ->
+        args {replay = Just val}
 setArgStr _ _ = Nothing
 
 positiveIntType :: T.OptionType
@@ -319,6 +344,12 @@ getOptionDescrs TestArgs {..} =
         optionDescription = "Scale all sizes by a number",
         optionType = positiveIntType,
         optionDefault = Just $ show sizeScale
+      },
+    T.OptionDescr
+      { optionName = "replay",
+        optionDescription = "Replay a previous test",
+        optionType = T.OptionString False,
+        optionDefault = Just $ show @(Maybe (QCGen, Int)) Nothing
       }
   ]
 
