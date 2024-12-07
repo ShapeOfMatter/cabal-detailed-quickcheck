@@ -1,7 +1,6 @@
 {-# LANGUAGE BlockArguments #-}
 module Tests where
 
-import Data.Maybe (maybeToList)
 import Distribution.TestSuite (Test)
 import Distribution.TestSuite.QuickCheck
 import System.CPUTime (getCPUTime)
@@ -35,7 +34,7 @@ tests' =
       PropertyTest
         { name = "monotonicity-addition",
           tags = [],
-          property = \(args@(ap, bp) :: (Positive Int, Positive Int)) ->
+          property = \(ap:: Positive Int, bp:: Positive Int) ->
             let a = getPositive ap
                 b = getPositive bp
                 c = a + b
@@ -47,7 +46,7 @@ tests' =
           tags = [],
           property = ioProperty do
             a <- getCPUTime
-            withFile "/dev/null" WriteMode $ \handle -> mapM_ print [1..10000] >> hFlush handle
+            withFile "/dev/null" WriteMode $ \handle -> mapM_ (print @Int) [1..10000] >> hFlush handle
             b <- getCPUTime
             return (a < b)
         }
