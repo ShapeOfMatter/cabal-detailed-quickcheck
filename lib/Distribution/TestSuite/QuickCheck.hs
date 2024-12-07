@@ -114,7 +114,6 @@ module Distribution.TestSuite.QuickCheck
   )
 where
 
-import Data.Bool (bool)
 import Data.Functor ((<&>))
 import qualified Distribution.TestSuite as T
 import qualified Test.QuickCheck as QC
@@ -141,7 +140,7 @@ data Verbosity
 
 -- ! [PARTIAL] This function fails when passed Silent
 switchVerbosity :: Verbosity -> Bool -> Verbosity -> Verbosity
-switchVerbosity v' True v = v'
+switchVerbosity v' True _ = v'
 switchVerbosity v' False v = min (pred v') v
 
 -- | Arguments for altering property test behaviour.
