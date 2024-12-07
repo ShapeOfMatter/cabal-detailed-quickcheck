@@ -1,6 +1,4 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications #-}
 module Tests where
 
 import Data.Maybe (maybeToList)
