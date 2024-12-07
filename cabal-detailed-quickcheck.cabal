@@ -23,6 +23,12 @@ common basic-config
         QuickCheck >=2.14.2 && <2.16,
         Cabal >=3.6&&<3.13
     default-language:   GHC2021
+    ghc-options:
+      -Wall
+      -Wno-incomplete-uni-patterns
+      -fprint-potential-instances
+      -haddock
+      -Winvalid-haddock
 
 
 library
